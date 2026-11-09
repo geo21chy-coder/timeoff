@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>타임오프 관리</title>
+<meta name="theme-color" content="#2f6fd1">
+<meta name="description" content="근로시간면제(타임오프) 사용 신청·관리">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" href="icon-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="타임오프">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<style>
+  html, body { margin: 0; height: 100%; background: #f4f5f7; overflow: hidden;
+    font-family: "Malgun Gothic", "Apple SD Gothic Neo", "Noto Sans KR", sans-serif; color: #1f2430; }
+  #app { position: fixed; inset: 0; width: 100%; height: 100%; border: 0; display: block;
+    padding-top: env(safe-area-inset-top); box-sizing: border-box; background: #f4f5f7; }
+  #msg { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 10px; text-align: center; padding: 24px; box-sizing: border-box; }
+  #msg .spin { width: 28px; height: 28px; border: 3px solid #d7deea; border-top-color: #2f6fd1; border-radius: 50%;
+    animation: r 0.8s linear infinite; }
+  #msg code { background: #fff; border: 1px solid #e2e5ea; padding: 2px 6px; border-radius: 4px; }
+  @keyframes r { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+<div id="msg"><div class="spin"></div><div>타임오프 관리를 여는 중…</div></div>
+
+<script>
+  /* ================= 설정: 아래 주소만 바꾸면 됩니다 =================
+     Apps Script 배포 후 받은 '웹 앱 URL'(…/exec)을 따옴표 안에 붙여넣으세요. */
+  var APP_URL = 'https://script.google.com/macros/s/AKfycbwYo5m4AhjciX-ln4n-j2MUrRMttetuwtCJgGaMOVRSyK0B1yN0vl6TeMGN4dWIREnYqQ/exec';
+  /* =================================================================== */
+
+  // 로그인 정보를 맡길 수 있는 출처(구글 Apps Script 화면). 테스트용 주소는 EXTRA_ORIGINS 에 추가.
+  var EXTRA_ORIGINS = [];
+  var KEY = 'timeoff_token';
+
+  function allowed(origin) {
+    if (EXTRA_ORIGINS.indexOf(origin) >= 0) return true;
+    try {
+      var u = new URL(origin);
+      return u.protocol === 'https:' && /\.googleusercontent\.com$/.test(u.hostname);
+    } catch (e) { return false; }
+  }
+
+  // 프로그램 화면(안쪽)이 로그인 정보를 저장·요청·삭제할 때
+  window.addEventListener('message', function (e) {
+    var d = e.data;
+    if (!d || d.app !== 'timeoff' || !allowed(e.origin)) return;
+    try {
+      if (d.type === 'set' && typeof d.token === 'string' && d.token.length < 200) localStorage.setItem(KEY, d.token);
+      else if (d.type === 'clear') localStorage.removeItem(KEY);
+      else if (d.type === 'get' && e.source) {
+        e.source.postMessage({ app: 'timeoff', type: 'token', token: localStorage.getItem(KEY) || '' }, e.origin);
+      }
+    } catch (err) { /* 저장 불가 브라우저 */ }
+  });
+
+  (function start() {
+    var msg = document.getElementById('msg');
+    if (APP_URL.indexOf('여기에') >= 0) {
+      msg.innerHTML = '<b>설정이 필요합니다</b><div>index.html 파일의 <code>APP_URL</code>에<br>Apps Script 웹 앱 주소(…/exec)를 넣어 주세요.</div>';
+      return;
+    }
+    var f = document.createElement('iframe');
+    f.id = 'app';
+    f.title = '타임오프 관리';
+    f.src = APP_URL;
+    f.allow = 'web-share; clipboard-write; fullscreen';
+    f.onload = function () { msg.style.display = 'none'; };
+    document.body.appendChild(f);
+  })();
+
+  // 홈 화면 앱으로 설치할 수 있게
+  if ('serviceWorker' in navigator && location.protocol === 'https:') {
+    navigator.serviceWorker.register('sw.js').catch(function () { /* 무시 */ });
+  }
+</script>
+</body>
+</html>
